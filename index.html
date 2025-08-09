@@ -1,60 +1,154 @@
 <!DOCTYPE html>
 <html lang="pt">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tuga Eats</title>
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="UTF-8">
+<title>Wordle Plus</title>
+<style>
+    body { font-family: Arial, sans-serif; background: #121213; color: white; text-align: center; }
+    .board { display: grid; gap: 5px; justify-content: center; margin-top: 20px; }
+    .row { display: grid; grid-template-columns: repeat(var(--letters), 50px); gap: 5px; }
+    .tile {
+        width: 50px; height: 50px; border: 2px solid #3a3a3c;
+        display: flex; justify-content: center; align-items: center;
+        font-size: 24px; font-weight: bold; text-transform: uppercase;
+    }
+    .correct { background: #6aaa64; border: none; }
+    .present { background: #c9b458; border: none; }
+    .absent  { background: #3a3a3c; border: none; }
+    button { margin: 10px; padding: 10px; font-size: 16px; }
+</style>
 </head>
 <body>
-  <header>
-    <div class="logo">Tuga Eats</div>
-    <nav>
-      <a href="#como-funciona">Como Funciona</a>
-      <a href="#restaurantes">Restaurantes</a>
-      <a href="#vantagens">Vantagens</a>
-      <a href="#login">Login</a>
-    </nav>
-  </header>
 
-  <section class="hero">
-    <h1>Encomenda as tuas refeições favoritas com Tuga Eats</h1>
-    <p>Menor comissão, mais sabor local. Só 20% para restaurantes!</p>
-    <input type="text" placeholder="Insere o teu código postal" />
-    <button onclick="procurarRestaurantes()">Procurar Restaurantes</button>
-  </section>
+<h1>Wordle Plus</h1>
+<div>
+    <label>Modo: </label>
+    <select id="wordLength">
+        <option value="5">5 Letras</option>
+        <option value="6">6 Letras</option>
+        <option value="7">7 Letras</option>
+    </select>
+    <button onclick="startGame()">Novo Jogo</button>
+</div>
+<div id="timer"></div>
+<div id="board" class="board"></div>
+<div>
+    <input type="text" id="guessInput" maxlength="7" placeholder="Adivinha..." />
+    <button onclick="makeGuess()">Tentar</button>
+    <button onclick="useHint()">Dica</button>
+</div>
+<div id="message"></div>
+<div id="stats"></div>
 
-  <section id="como-funciona">
-    <h2>Como Funciona</h2>
-    <div class="steps">
-      <div>
-        <h3>1. Escolhe</h3>
-        <p>Explora os restaurantes locais disponíveis na tua zona.</p>
-      </div>
-      <div>
-        <h3>2. Encomenda</h3>
-        <p>Adiciona os teus pratos preferidos ao carrinho e finaliza a encomenda.</p>
-      </div>
-      <div>
-        <h3>3. Desfruta</h3>
-        <p>Recebe a tua refeição no conforto da tua casa.</p>
-      </div>
-    </div>
-  </section>
+<script>
+const wordLists = {
+    5: ["carta", "piano", "livro", "luzir", "cinto", "pedra", "chuva", "navio", "areia", "festa"],
+    6: ["amigos", "chaves", "nuvens", "caneta", "fichas", "pavios", "veludo", "figura", "selado", "lendas"],
+    7: ["animais", "flores", "caminho", "palavra", "recheio", "ladrão", "trilhos", "deserto", "vitória", "ventoso"]
+};
 
-  <section id="vantagens">
-    <h2>Porquê escolher o Tuga Eats?</h2>
-    <ul>
-      <li>Comissão mais baixa para restaurantes (apenas 20%)</li>
-      <li>Suporte a negócios locais</li>
-      <li>Entrega rápida e eficiente</li>
-    </ul>
-  </section>
+let secretWord = "";
+let maxTries = 6;
+let tries = 0;
+let hintsUsed = 0;
+let timerInterval;
+let timeLimit = 30;
+let gameActive = false;
 
-  <footer>
-    <p>&copy; 2025 Tuga Eats. Todos os direitos reservados.</p>
-  </footer>
+function startGame() {
+    const length = parseInt(document.getElementById("wordLength").value);
+    secretWord = wordLists[length][Math.floor(Math.random() * wordLists[length].length)];
+    tries = 0;
+    hintsUsed = 0;
+    gameActive = true;
+    clearInterval(timerInterval);
+    document.getElementById("board").innerHTML = "";
+    document.documentElement.style.setProperty('--letters', length);
+    for (let i = 0; i < maxTries; i++) {
+        const row = document.createElement("div");
+        row.classList.add("row");
+        for (let j = 0; j < length; j++) {
+            const tile = document.createElement("div");
+            tile.classList.add("tile");
+            row.appendChild(tile);
+        }
+        document.getElementById("board").appendChild(row);
+    }
+    startTimer();
+    showStats();
+}
 
-  <script src="script.js"></script>
+function startTimer() {
+    document.getElementById("timer").textContent = `Tempo: ${timeLimit}s`;
+    timerInterval = setInterval(() => {
+        timeLimit--;
+        document.getElementById("timer").textContent = `Tempo: ${timeLimit}s`;
+        if (timeLimit <= 0) {
+            clearInterval(timerInterval);
+            endGame(false, "Acabou o tempo!");
+        }
+    }, 1000);
+}
+
+function makeGuess() {
+    if (!gameActive) return;
+    const input = document.getElementById("guessInput");
+    const guess = input.value.toLowerCase();
+    if (guess.length !== secretWord.length) return alert("Tamanho errado!");
+    const row = document.querySelectorAll(".row")[tries];
+    for (let i = 0; i < guess.length; i++) {
+        const tile = row.children[i];
+        tile.textContent = guess[i];
+        if (guess[i] === secretWord[i]) tile.classList.add("correct");
+        else if (secretWord.includes(guess[i])) tile.classList.add("present");
+        else tile.classList.add("absent");
+    }
+    tries++;
+    input.value = "";
+    if (guess === secretWord) {
+        endGame(true, "Parabéns! Acertaste!");
+    } else if (tries >= maxTries) {
+        endGame(false, `Perdeste! A palavra era "${secretWord}".`);
+    }
+}
+
+function useHint() {
+    if (!gameActive) return;
+    hintsUsed++;
+    let unrevealed = [];
+    for (let i = 0; i < secretWord.length; i++) {
+        const revealed = Array.from(document.querySelectorAll(".row .tile"))
+            .some(tile => tile.textContent === secretWord[i] && tile.classList.contains("correct"));
+        if (!revealed) unrevealed.push(i);
+    }
+    if (unrevealed.length > 0) {
+        const idx = unrevealed[Math.floor(Math.random() * unrevealed.length)];
+        alert(`A letra na posição ${idx+1} é "${secretWord[idx].toUpperCase()}".`);
+    }
+}
+
+function endGame(win, msg) {
+    gameActive = false;
+    clearInterval(timerInterval);
+    document.getElementById("message").textContent = msg;
+    saveStats(win);
+}
+
+function saveStats(win) {
+    let stats = JSON.parse(localStorage.getItem("wordleStats")) || { wins: 0, losses: 0 };
+    if (win) stats.wins++;
+    else stats.losses++;
+    localStorage.setItem("wordleStats", JSON.stringify(stats));
+    showStats();
+}
+
+function showStats() {
+    let stats = JSON.parse(localStorage.getItem("wordleStats")) || { wins: 0, losses: 0 };
+    let total = stats.wins + stats.losses;
+    let winRate = total ? Math.round((stats.wins / total) * 100) : 0;
+    document.getElementById("stats").textContent = 
+        `Vitórias: ${stats.wins} | Derrotas: ${stats.losses} | Taxa de vitória: ${winRate}%`;
+}
+</script>
 </body>
 </html>
